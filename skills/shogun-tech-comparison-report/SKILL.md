@@ -1,6 +1,6 @@
 ---
 name: tech-comparison-report
-description: 任意の2つの技術（フレームワーク、プロトコル、アーキテクチャパターン等）を入力として受け取り、両者の関係性分析・多軸比較・ユースケース分析・Mermaidフロー図を含む包括的な比較レポートを自動生成する。「RAGとMCPの関係を分析して」「SpringとNablarchを比較して」「GraphQLとgRPCの違いを整理して」「KubernetesとDockerの関係性を図解して」といった要望に対応する。WebSearch + WebFetch + arXiv論文調査 + Mermaid図自動生成を駆使した技術比較スキル。
+description: 任意の2つの技術（フレームワーク、プロトコル、アーキテクチャパターン等）を入力として受け取り、両者の関係性分析・多軸比較・ユースケース分析・Mermaidフロー図を含む包括的な比較レポートを自動生成する。「RAGとMCPの関係を分析して」「SpringとNablarchを比較して」「GraphQLとgRPCの違いを整理して」「KubernetesとDockerの関係性を図解して」といった要望に対応する。また、OSSモデル（Embedding、LLM、Reranker等）の比較評価にも対応し、ベンチマークスコア・ライセンス・リソース使用量を比較して推奨モデルを提案する。「EmbeddingモデルのMTEBスコアを比較して」「商用利用可能なLLMを比較して」「○○タスク向けの最適モデルを推薦して」といった要望にも対応する。WebSearch + WebFetch + arXiv論文調査 + Mermaid図自動生成を駆使した技術比較・モデル評価スキル。
 ---
 
 # Tech Comparison Report
@@ -28,6 +28,14 @@ description: 任意の2つの技術（フレームワーク、プロトコル、
 **本スキルの原型:**
 O-023（RAG x MCP関連性分析レポート）を汎用化したもの。1190行・20以上のMermaid/ASCII図を含むレポートを生成した実績に基づく。
 
+**OSSモデル評価モード:**
+本スキルはOSSモデル（Embedding、LLM、Reranker等）の比較評価にも対応する。モデル評価モードでは以下を提供する：
+- MTEB/LMSYS等の公開ベンチマークスコア比較
+- ライセンス（Apache-2.0、MIT、商用利用可否等）の整理
+- リソース使用量（メモリ、GPU VRAM、推論速度）の比較
+- タスク適性に基づく推奨モデルの提案
+- コスト効率分析（品質/コスト比）
+
 ## When to Use
 
 以下のいずれかに該当する場合にこのスキルを使用する：
@@ -50,6 +58,28 @@ O-023（RAG x MCP関連性分析レポート）を汎用化したもの。1190�
 - 補完技術: RAG vs MCP, Docker vs Kubernetes, Terraform vs Ansible
 - アーキテクチャ: マイクロサービス vs モノリス, サーバーレス vs コンテナ
 - データベース: PostgreSQL vs MySQL, Redis vs Memcached, MongoDB vs DynamoDB
+
+### OSSモデル評価モード
+
+以下のいずれかに該当する場合、OSSモデル評価モードで実行する：
+
+- 「○○（Embedding/LLM/Reranker等）のOSSモデルを比較して」
+- 「○○タスク向けの最適なモデルを推薦して」
+- 「○○のMTEB/ベンチマークスコアを比較して」
+- 「○○のライセンス・商用利用可否を調べて」
+- 「○○のメモリ/GPU使用量を比較して」
+- 「コスト効率の良いEmbeddingモデルを選定して」
+- 「日本語対応のLLMを比較評価して」
+- モデル選定の判断材料として、多軸での性能比較が必要な場合
+
+**モデル評価トリガーキーワード**: OSSモデル, Embedding, LLM, Reranker, SLM, ベンチマーク, MTEB, LMSYS, HuggingFace, 推論コスト, VRAM, メモリ使用量, 商用利用, Apache-2.0, multilingual, 日本語対応
+
+**対象モデルカテゴリの例:**
+- Embeddingモデル: text-embedding-3, Jina-embeddings-v3, voyage-3, multilingual-e5, bge-m3
+- LLM: Llama-3, Mistral, Qwen, Gemma, Phi, Command-R
+- Reranker: bge-reranker, Jina-reranker, ms-marco-MiniLM
+- Code専用: voyage-code-3, CodeLlama, DeepSeek-Coder, StarCoder
+- 日本語特化: japanese-stablelm, ELYZA, Swallow, PLaMo
 
 ## Instructions
 
@@ -779,6 +809,221 @@ Phase 4: 高度化・エンタープライズ対応
   □ テーブルのカラム数が各行で一致しているか
 ```
 
+---
+
+### Phase M: OSSモデル評価モード（モデル比較専用フロー）
+
+OSSモデル（Embedding、LLM、Reranker等）の比較評価を行う場合、Phase 1-7の代わりに以下のPhase M1-M6を実行する。
+
+#### Phase M1: モデルカテゴリと評価対象の特定
+
+```
+【入力パラメータの解析】
+
+1. モデルカテゴリの特定
+   - Embedding: 文書/クエリのベクトル化（RAG検索、類似度計算）
+   - LLM: テキスト生成（チャット、要約、翻訳）
+   - Reranker: 検索結果の再順位付け
+   - Code専用: コード生成・補完・説明
+   - Multimodal: 画像+テキスト処理
+
+2. 評価対象モデルの決定
+   - ユーザー指定がある場合: 指定モデルを評価
+   - 指定がない場合: カテゴリ上位5-10モデルを自動選定
+
+3. ユースケースの明確化
+   - 用途: RAG, チャット, コード生成, 翻訳, 要約 等
+   - 言語要件: 英語のみ, 日本語対応, multilingual
+   - デプロイ環境: クラウドAPI, オンプレミス, エッジ
+```
+
+#### Phase M2: ベンチマークスコアの収集
+
+```
+【検索パターン -- 並列実行可能】
+
+1. MTEB（Massive Text Embedding Benchmark）※Embeddingモデル
+   WebSearch: "MTEB leaderboard {model_name}"
+   WebSearch: "MTEB benchmark {model_category} {current_year}"
+   WebFetch: https://huggingface.co/spaces/mteb/leaderboard
+
+2. LMSYS Chatbot Arena（LLM）
+   WebSearch: "LMSYS chatbot arena leaderboard {current_year}"
+   WebSearch: "{model_name} LMSYS ELO score"
+   WebFetch: https://chat.lmsys.org/?leaderboard
+
+3. Open LLM Leaderboard（LLM）
+   WebSearch: "Open LLM Leaderboard {model_name}"
+   WebFetch: https://huggingface.co/spaces/HuggingFaceH4/open_llm_leaderboard
+
+4. タスク固有ベンチマーク
+   WebSearch: "{model_name} benchmark {task_name}"
+   WebSearch: "{model_name} evaluation {language} {current_year}"
+
+5. 日本語ベンチマーク（日本語対応モデルの場合）
+   WebSearch: "{model_name} 日本語 ベンチマーク"
+   WebSearch: "Japanese LLM benchmark {model_name}"
+   WebSearch: "JGLUE {model_name}"
+
+【抽出項目】
+- 総合スコア / ランキング
+- タスク別スコア（検索、分類、クラスタリング等）
+- 言語別スコア（日本語スコアがあれば）
+- ベンチマーク取得日（情報の鮮度確認）
+```
+
+#### Phase M3: ライセンス・商用利用可否の調査
+
+```
+【検索パターン -- 並列実行可能】
+
+1. HuggingFaceモデルカード
+   WebFetch: https://huggingface.co/{org}/{model_name}
+   抽出: License, Commercial use, 利用規約
+
+2. GitHubリポジトリ
+   WebSearch: "{model_name} github license"
+   gh api repos/{owner}/{repo} （可能な場合）
+
+3. 公式ドキュメント
+   WebSearch: "{model_name} license terms commercial"
+   WebSearch: "{model_name} 商用利用 ライセンス"
+
+【ライセンス分類】
+- 完全オープン: Apache-2.0, MIT, BSD → 商用利用自由
+- 条件付きオープン: Llama 3 Community License → 月間アクティブユーザー制限等
+- 研究目的限定: CC-BY-NC, 一部独自ライセンス → 商用利用不可
+- 要確認: 独自ライセンス → 個別に利用規約を確認
+
+【出力テーブル形式】
+| モデル | ライセンス | 商用利用 | 制約事項 |
+|--------|-----------|---------|---------|
+| ... | Apache-2.0 | ◎ 自由 | なし |
+| ... | Llama 3 | ○ 条件付き | MAU 7億未満 |
+| ... | CC-BY-NC | ✗ 不可 | 研究目的のみ |
+```
+
+#### Phase M4: リソース使用量の調査
+
+```
+【検索パターン -- 並列実行可能】
+
+1. モデルサイズ・パラメータ数
+   WebSearch: "{model_name} parameters size"
+   WebFetch: HuggingFaceモデルカード
+
+2. メモリ/VRAM使用量
+   WebSearch: "{model_name} VRAM memory requirements"
+   WebSearch: "{model_name} GPU memory inference"
+
+3. 推論速度
+   WebSearch: "{model_name} inference speed latency"
+   WebSearch: "{model_name} tokens per second"
+
+4. 量子化バージョン
+   WebSearch: "{model_name} GGUF quantization"
+   WebSearch: "{model_name} AWQ GPTQ INT4 INT8"
+
+【収集項目】
+- パラメータ数（7B, 13B, 70B等）
+- FP16時のVRAM使用量
+- 量子化時のVRAM使用量（INT4, INT8）
+- 推論速度（tokens/sec または ms/token）
+- コンテキスト長（最大トークン数）
+- Embedding次元数（Embeddingモデルの場合）
+
+【リソース使用量テーブル形式】
+| モデル | パラメータ | VRAM (FP16) | VRAM (INT4) | 速度 | コンテキスト長 |
+|--------|-----------|-------------|-------------|------|---------------|
+| ... | 7B | 14GB | 4GB | 50 tok/s | 8K |
+```
+
+#### Phase M5: コスト効率分析
+
+```
+【コスト効率の計算】
+
+1. API利用コスト（商用APIの場合）
+   - 入力トークン単価
+   - 出力トークン単価
+   - 月間想定コスト（使用量シナリオ別）
+
+2. セルフホスティングコスト（オンプレミスの場合）
+   - 必要GPU（A100, H100, RTX 4090等）
+   - GPU時間単価（クラウドGPU利用時）
+   - 月間インフラコスト概算
+
+3. 品質/コスト比の算出
+   - ベンチマークスコア ÷ コスト = コスト効率指数
+   - 用途別の最適コストパフォーマンスモデルを特定
+
+【コスト効率テーブル形式】
+| モデル | ベンチマーク | 月間コスト概算 | コスト効率 | 推奨用途 |
+|--------|-------------|---------------|-----------|---------|
+| ... | 85.2 | $50 | ★★★★★ | 高頻度RAG |
+| ... | 92.1 | $500 | ★★★☆☆ | 精度重視 |
+```
+
+#### Phase M6: 推奨モデルの提案とレポート生成
+
+```
+【推奨ロジック】
+
+1. ユースケース別推奨
+   用途ごとに最適モデルを1-3件提案:
+   - 「精度重視」: ベンチマークスコア最高のモデル
+   - 「コスト重視」: コスト効率指数最高のモデル
+   - 「バランス型」: 精度とコストのバランスが良いモデル
+   - 「日本語特化」: 日本語ベンチマークスコア最高のモデル
+   - 「エッジ向け」: 軽量で低リソースのモデル
+
+2. 制約条件別推奨
+   - 商用利用必須 → ライセンスフィルタ適用
+   - VRAM制限あり → リソースフィルタ適用
+   - オンプレミス必須 → セルフホスティング可能モデルに限定
+
+3. 総合推奨
+   | 推奨順位 | モデル | 推奨理由 |
+   |---------|--------|---------|
+   | 1位 | ... | {理由} |
+   | 2位 | ... | {理由} |
+   | 3位 | ... | {理由} |
+
+【レポート生成】
+Phase M6完了後、「OSSモデル評価レポート」セクションのOutput Formatに従ってレポートを生成する。
+```
+
+#### Phase M7: モデル評価レポートの品質チェック
+
+```
+【必須チェック項目 -- モデル評価モード】
+
+□ ベンチマークデータ
+  □ MTEB/LMSYS等の公開ベンチマークを引用しているか
+  □ ベンチマークの取得日が明記されているか
+  □ 複数のベンチマークを参照しているか（1つだけに依存していないか）
+
+□ ライセンス情報
+  □ 全モデルのライセンスが明記されているか
+  □ 商用利用可否が明確か
+  □ 制約事項（MAU制限等）が記載されているか
+
+□ リソース情報
+  □ VRAM使用量が記載されているか
+  □ 量子化オプションが検討されているか
+  □ 推論速度の目安が記載されているか
+
+□ 推奨の妥当性
+  □ 推奨理由が明確か
+  □ ユースケース別の推奨があるか
+  □ コスト効率の観点が含まれているか
+  □ 制約条件（ライセンス、リソース）を満たしているか
+
+□ 公平性
+  □ 特定モデル/ベンダーに偏っていないか
+  □ OSSモデルと商用APIの両方を検討しているか（該当する場合）
+```
+
 ## Input Format
 
 スキル実行時に以下のパラメータを指定する。
@@ -828,6 +1073,39 @@ language: "ja"                         # 出力言語（デフォルト: ja）
 | `arxiv_search` | -- | `true` | arXiv論文を検索するか |
 | `include_roadmap` | -- | `true` | 導入ロードマップを含めるか |
 | `language` | -- | `ja` | 出力言語 |
+
+### OSSモデル評価モード用パラメータ
+
+```yaml
+# モデル評価モードの場合
+evaluation_mode: "oss_model"               # "tech_comparison" (デフォルト) | "oss_model"
+model_category: "embedding"                # embedding | llm | reranker | code | multimodal
+target_models:                             # 評価対象モデル（省略時は上位モデル自動選定）
+  - "text-embedding-3-large"
+  - "jina-embeddings-v3"
+  - "voyage-3"
+  - "bge-m3"
+  - "multilingual-e5-large-instruct"
+use_case: "RAG検索"                        # 想定ユースケース
+language_requirements: "japanese"          # english | japanese | multilingual | any
+deployment_target: "cloud_api"             # cloud_api | on_premise | edge
+constraints:                               # 制約条件
+  commercial_use: true                     # 商用利用必須か
+  max_vram_gb: 24                          # 最大VRAM（GB）
+  max_cost_per_month_usd: 500              # 月間最大コスト（USD）
+```
+
+| パラメータ | 必須 | デフォルト | 説明 |
+|----------|------|----------|------|
+| `evaluation_mode` | -- | `tech_comparison` | 評価モード。`oss_model` でモデル評価モード |
+| `model_category` | ✅* | -- | モデルカテゴリ（モデル評価モード時は必須） |
+| `target_models` | -- | `[]` | 評価対象モデル。省略時は自動選定 |
+| `use_case` | -- | `""` | 想定ユースケース |
+| `language_requirements` | -- | `any` | 言語要件 |
+| `deployment_target` | -- | `cloud_api` | デプロイ先 |
+| `constraints.commercial_use` | -- | `false` | 商用利用必須か |
+| `constraints.max_vram_gb` | -- | `null` | 最大VRAM制約 |
+| `constraints.max_cost_per_month_usd` | -- | `null` | 月間コスト上限 |
 
 ### 深度別の処理範囲
 
@@ -1143,6 +1421,297 @@ Phase 4: {名前}
 *本レポートは{agent_name}が戦略アナリスト / ソリューションアーキテクトとして調査・作成したものである。*
 ```
 
+### OSSモデル評価レポートテンプレート（evaluation_mode: oss_model の場合）
+
+```markdown
+# {model_category}モデル比較評価レポート -- {use_case}
+
+> **作成日**: YYYY-MM-DD
+> **タスクID**: {task_id}
+> **作成者**: {agent_name}（ペルソナ: MLエンジニア / ソリューションアーキテクト）
+> **評価カテゴリ**: {model_category}
+> **ステータス**: 完了
+
+---
+
+## 目次
+
+1. [エグゼクティブサマリ](#1-エグゼクティブサマリ)
+2. [評価対象モデル](#2-評価対象モデル)
+3. [ベンチマークスコア比較](#3-ベンチマークスコア比較)
+4. [ライセンス・商用利用](#4-ライセンス商用利用)
+5. [リソース使用量](#5-リソース使用量)
+6. [コスト効率分析](#6-コスト効率分析)
+7. [推奨モデル](#7-推奨モデル)
+8. [参考情報](#8-参考情報)
+
+---
+
+## 1. エグゼクティブサマリ
+
+### 推奨結論
+
+**{use_case}には{推奨モデル}を推奨する。** {1-2文の推奨理由}
+
+| 推奨順位 | モデル | 推奨理由 | 制約充足 |
+|---------|--------|---------|---------|
+| **1位** | {model_1} | {理由} | ◎ |
+| **2位** | {model_2} | {理由} | ○ |
+| **3位** | {model_3} | {理由} | ○ |
+
+### 要件との適合性
+
+| 要件 | 最適モデル |
+|------|-----------|
+| 精度重視 | {model} |
+| コスト重視 | {model} |
+| 日本語対応 | {model} |
+| 低リソース | {model} |
+
+---
+
+## 2. 評価対象モデル
+
+| モデル名 | 開発元 | パラメータ数 | 公開日 | HuggingFace |
+|---------|--------|-------------|--------|-------------|
+| {model_1} | {org} | {size} | {date} | [Link]({url}) |
+| {model_2} | {org} | {size} | {date} | [Link]({url}) |
+| ... | ... | ... | ... | ... |
+
+### モデル概要
+
+#### {model_1}
+{概要説明 -- 特徴、設計思想、強み}
+
+#### {model_2}
+{概要説明}
+
+---
+
+## 3. ベンチマークスコア比較
+
+### 3.1 総合ベンチマーク
+
+| モデル | MTEB Avg | 検索 | 分類 | クラスタリング | 再順位付け |
+|--------|----------|------|------|---------------|-----------|
+| {model_1} | {score} | {score} | {score} | {score} | {score} |
+| {model_2} | {score} | {score} | {score} | {score} | {score} |
+
+> **データソース**: MTEB Leaderboard ({取得日})
+
+### 3.2 日本語ベンチマーク（該当する場合）
+
+| モデル | JMTEB Avg | 検索 | 分類 | STS |
+|--------|-----------|------|------|-----|
+| {model_1} | {score} | {score} | {score} | {score} |
+| {model_2} | {score} | {score} | {score} | {score} |
+
+### 3.3 ベンチマーク可視化
+
+```
+{ASCIIアートでのスコア比較バーチャート}
+
+モデル別総合スコア（MTEB Avg）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{model_1}  ████████████████████████████████████  68.5
+{model_2}  ██████████████████████████████████    66.2
+{model_3}  ████████████████████████████████      64.8
+{model_4}  ██████████████████████████████        62.1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+---
+
+## 4. ライセンス・商用利用
+
+| モデル | ライセンス | 商用利用 | 制約事項 | 確認URL |
+|--------|-----------|---------|---------|---------|
+| {model_1} | Apache-2.0 | ◎ 自由 | なし | [Link]({url}) |
+| {model_2} | MIT | ◎ 自由 | なし | [Link]({url}) |
+| {model_3} | Llama 3 | ○ 条件付き | MAU 7億未満 | [Link]({url}) |
+| {model_4} | CC-BY-NC | ✗ 不可 | 研究目的のみ | [Link]({url}) |
+
+### ライセンス詳細
+
+#### Apache-2.0 / MIT（完全オープン）
+- 商用利用: 自由
+- 派生物作成: 可
+- 特許許諾: あり（Apache-2.0）
+- 帰属表示: 必要
+
+#### Llama 3 Community License（条件付き）
+- 商用利用: 月間アクティブユーザー7億人未満は可
+- 大規模サービスでの利用: 要相談
+
+---
+
+## 5. リソース使用量
+
+| モデル | パラメータ | VRAM (FP16) | VRAM (INT4) | 速度 | 次元数 | コンテキスト長 |
+|--------|-----------|-------------|-------------|------|--------|---------------|
+| {model_1} | 335M | 1.5GB | 0.5GB | 2000 tok/s | 1024 | 8K |
+| {model_2} | 570M | 2.5GB | 1GB | 1500 tok/s | 1024 | 8K |
+| {model_3} | 7B | 14GB | 4GB | 50 tok/s | 4096 | 32K |
+
+### デプロイ要件別適合性
+
+```
+{ASCIIアートでのリソース比較}
+
+VRAM使用量比較（FP16）
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+{model_1}  ██                                    1.5GB
+{model_2}  ████                                  2.5GB
+{model_3}  ████████████████████████████          14GB
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+           |     |     |     |     |     |
+           0    4GB   8GB  12GB  16GB  24GB
+```
+
+| デプロイ環境 | 適合モデル |
+|-------------|-----------|
+| エッジ（4GB VRAM） | {model_1}, {model_2} |
+| ミッドレンジGPU（8GB） | {model_1}, {model_2}, {model_3} (INT4) |
+| ハイエンドGPU（24GB+） | 全モデル対応 |
+
+---
+
+## 6. コスト効率分析
+
+### 6.1 API利用コスト（該当する場合）
+
+| モデル | 入力単価 | 出力単価 | 月間コスト概算* |
+|--------|---------|---------|----------------|
+| {model_1} (API) | $0.02/1M tok | $0.02/1M tok | $100 |
+| {model_2} (API) | $0.05/1M tok | $0.05/1M tok | $250 |
+
+*月間500万トークン想定
+
+### 6.2 セルフホスティングコスト
+
+| モデル | 推奨GPU | GPU時間単価 | 月間コスト概算* |
+|--------|--------|------------|----------------|
+| {model_1} | T4 | $0.35/hr | $252 |
+| {model_2} | A10G | $1.00/hr | $720 |
+| {model_3} | A100 | $3.00/hr | $2,160 |
+
+*月間720時間稼働想定
+
+### 6.3 コスト効率指数
+
+| モデル | ベンチマーク | 月間コスト | コスト効率* | 評価 |
+|--------|-------------|-----------|------------|------|
+| {model_1} | 68.5 | $100 | 0.685 | ★★★★★ |
+| {model_2} | 72.1 | $250 | 0.288 | ★★★☆☆ |
+| {model_3} | 85.2 | $500 | 0.170 | ★★☆☆☆ |
+
+*コスト効率 = ベンチマークスコア / 月間コスト（高いほど効率的）
+
+---
+
+## 7. 推奨モデル
+
+### 7.1 ユースケース別推奨
+
+| ユースケース | 推奨モデル | 理由 |
+|-------------|-----------|------|
+| **精度重視** | {model} | ベンチマーク最高スコア |
+| **コスト重視** | {model} | コスト効率指数最高 |
+| **日本語特化** | {model} | JMTEB最高スコア |
+| **低リソース** | {model} | 1GB VRAM以下で動作 |
+| **バランス型** | {model} | 精度・コスト・リソースのバランス良好 |
+
+### 7.2 制約条件別推奨
+
+#### 商用利用必須 + VRAM 8GB以下
+**推奨: {model}**
+- ライセンス: Apache-2.0（商用利用自由）
+- VRAM: 2.5GB（FP16）/ 1GB（INT4）
+- ベンチマーク: MTEB Avg 66.2
+
+#### 日本語対応 + 精度重視
+**推奨: {model}**
+- JMTEB: 72.5（日本語ベンチマーク最高）
+- MTEB: 68.5（英語も高精度）
+
+### 7.3 総合推奨
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     総合推奨モデル                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  🥇 1位: {model_1}                                          │
+│     推奨理由: {理由}                                         │
+│     適用場面: {場面}                                         │
+│                                                             │
+│  🥈 2位: {model_2}                                          │
+│     推奨理由: {理由}                                         │
+│     適用場面: {場面}                                         │
+│                                                             │
+│  🥉 3位: {model_3}                                          │
+│     推奨理由: {理由}                                         │
+│     適用場面: {場面}                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 7.4 導入ロードマップ
+
+```
+Phase 1: PoC（1-2週間）
+├── 推奨モデル1位でプロトタイプ作成
+├── 実データでの精度検証
+└── レイテンシ・スループット測定
+
+    │
+    ▼
+
+Phase 2: 本番導入準備（2-4週間）
+├── インフラ構築（GPU/API設定）
+├── モニタリング設定
+└── フォールバック設計
+
+    │
+    ▼
+
+Phase 3: 本番運用
+├── 段階的トラフィック移行
+├── A/Bテスト（既存モデルとの比較）
+└── コスト・精度の継続監視
+```
+
+---
+
+## 8. 参考情報
+
+### ベンチマーク・リーダーボード
+
+| リソース | URL | 概要 |
+|---------|-----|------|
+| MTEB Leaderboard | https://huggingface.co/spaces/mteb/leaderboard | Embeddingモデルベンチマーク |
+| Open LLM Leaderboard | https://huggingface.co/open-llm-leaderboard | LLMベンチマーク |
+| LMSYS Chatbot Arena | https://chat.lmsys.org/?leaderboard | LLM対話品質ランキング |
+
+### モデルカード・ドキュメント
+
+| モデル | HuggingFace | GitHub |
+|--------|-------------|--------|
+| {model_1} | [Link]({url}) | [Link]({url}) |
+| {model_2} | [Link]({url}) | [Link]({url}) |
+
+### 学術論文（該当する場合）
+
+| 論文タイトル | URL | 概要 |
+|-------------|-----|------|
+| ... | https://arxiv.org/abs/... | ... |
+
+---
+
+*本レポートは{agent_name}がMLエンジニア / ソリューションアーキテクトとして調査・作成したものである。*
+*ベンチマークスコアは{取得日}時点のデータに基づく。最新情報は各リーダーボードを参照されたい。*
+```
+
 ## Examples
 
 ### Example 1: RAG vs MCP（補完関係 -- O-023実績ベース）
@@ -1261,6 +1830,128 @@ Phase 1 調査結果:
 出力: 650行のMarkdownレポート
 ```
 
+### Example 4: Embeddingモデル比較（OSSモデル評価モード）
+
+```
+入力:
+  evaluation_mode: "oss_model"
+  model_category: "embedding"
+  target_models:
+    - "text-embedding-3-large"
+    - "jina-embeddings-v3"
+    - "voyage-3"
+    - "bge-m3"
+    - "multilingual-e5-large-instruct"
+  use_case: "RAG検索（Nablarch技術ドキュメント）"
+  language_requirements: "japanese"
+  deployment_target: "on_premise"
+  constraints:
+    commercial_use: true
+    max_vram_gb: 8
+  output_path: "output/embedding_model_evaluation.md"
+
+Phase M2 調査結果:
+  - MTEB Leaderboard取得
+    text-embedding-3-large: 64.6
+    jina-embeddings-v3: 65.5
+    voyage-3: 67.3
+    bge-m3: 68.3
+    multilingual-e5-large-instruct: 64.2
+  - 日本語ベンチマーク（JMTEB）
+    bge-m3: 72.5（日本語対応優秀）
+    jina-embeddings-v3: 70.2
+
+Phase M3 調査結果:
+  - ライセンス
+    jina-embeddings-v3: Apache-2.0 ◎
+    bge-m3: MIT ◎
+    multilingual-e5-large-instruct: MIT ◎
+    text-embedding-3-large: 商用API（従量課金）
+    voyage-3: 商用API（従量課金）
+
+Phase M4 調査結果:
+  - リソース使用量
+    jina-embeddings-v3: 570M params, 2.5GB VRAM
+    bge-m3: 568M params, 2.4GB VRAM
+    multilingual-e5-large-instruct: 560M params, 2.3GB VRAM
+
+Phase M5 コスト効率:
+  - オンプレミス想定（T4 GPU月720時間）
+    OSSモデル: $252/月（GPU代のみ）
+  - API利用想定（月500万トークン）
+    text-embedding-3-large: $65/月
+    voyage-3: $60/月
+
+Phase M6 推奨:
+  1位: jina-embeddings-v3
+    理由: Apache-2.0、日本語対応、8GB VRAM以下、MTEB上位
+  2位: bge-m3
+    理由: MIT、日本語ベンチマーク最高、軽量
+  3位: multilingual-e5-large-instruct
+    理由: MIT、低リソース、多言語対応
+
+出力: 450行のモデル評価レポート
+```
+
+### Example 5: LLM比較（商用利用必須・低コスト重視）
+
+```
+入力:
+  evaluation_mode: "oss_model"
+  model_category: "llm"
+  target_models:
+    - "Llama-3.1-8B-Instruct"
+    - "Mistral-7B-Instruct-v0.3"
+    - "Qwen2.5-7B-Instruct"
+    - "gemma-2-9b-it"
+    - "Phi-3.5-mini-instruct"
+  use_case: "コード生成・レビュー支援"
+  language_requirements: "multilingual"
+  deployment_target: "on_premise"
+  constraints:
+    commercial_use: true
+    max_vram_gb: 24
+    max_cost_per_month_usd: 1000
+  output_path: "output/llm_code_assistant_evaluation.md"
+
+Phase M2 調査結果:
+  - Open LLM Leaderboard
+    Qwen2.5-7B-Instruct: 74.2
+    Llama-3.1-8B-Instruct: 72.8
+    Mistral-7B-Instruct: 68.5
+    gemma-2-9b-it: 71.2
+    Phi-3.5-mini-instruct: 69.8
+  - HumanEval（コード生成）
+    Qwen2.5-7B-Instruct: 75.6%
+    Llama-3.1-8B-Instruct: 72.1%
+
+Phase M3 調査結果:
+  - ライセンス
+    Llama-3.1-8B: Llama 3.1 Community License（MAU 7億未満OK）
+    Mistral-7B: Apache-2.0 ◎
+    Qwen2.5-7B: Qwen License（商用利用可、出力利用制限なし）
+    gemma-2-9b: Gemma Terms（商用利用可、一部制限）
+    Phi-3.5-mini: MIT ◎
+
+Phase M4 調査結果:
+  - VRAM使用量（FP16）
+    Phi-3.5-mini (3.8B): 8GB
+    Mistral-7B: 14GB
+    Qwen2.5-7B: 14GB
+    Llama-3.1-8B: 16GB
+    gemma-2-9b: 18GB
+
+Phase M6 推奨:
+  1位: Qwen2.5-7B-Instruct
+    理由: コード生成ベンチマーク最高、商用利用可、24GB以内
+  2位: Phi-3.5-mini-instruct
+    理由: MIT、8GB VRAM、コスト効率最高
+  3位: Mistral-7B-Instruct-v0.3
+    理由: Apache-2.0、安定性、コミュニティ大
+
+出力: 500行のLLM評価レポート
+```
+
 ## Guidelines
 
 ### 必須ルール
@@ -1353,3 +2044,58 @@ Phase 1 調査結果:
 - **逐次的な検索実行**: 並列可能な検索を1つずつ実行し、時間を浪費する
 - **エグゼクティブサマリの欠落**: 結論を述べず、読者に全文を読ませる構成
 - **ユースケースなしの抽象比較**: 具体的なシナリオなく機能の優劣のみを議論する
+
+### OSSモデル評価モード固有のルール
+
+1. **ベンチマークの信頼性確保**
+   - 必ず公開リーダーボード（MTEB、LMSYS、Open LLM Leaderboard等）を引用する
+   - ベンチマークの取得日を明記する（情報の鮮度が重要）
+   - 単一ベンチマークに依存せず、複数の評価軸で比較する
+   - ベンチマークの限界（実タスクとの乖離等）も言及する
+
+2. **ライセンス情報の正確性**
+   - 必ずHuggingFaceモデルカードまたは公式GitHubでライセンスを確認する
+   - 「商用利用可」の場合も条件（MAU制限等）を詳細に記載する
+   - ライセンス変更の可能性に言及する（モデルによっては過去に変更あり）
+
+3. **リソース情報の実用性**
+   - 理論値だけでなく、実測値（可能な場合）を優先する
+   - 量子化（INT4, INT8, GGUF等）オプションを必ず検討する
+   - 推論速度はハードウェア依存のため、比較条件を明記する
+
+4. **推奨の透明性**
+   - 推奨理由を明確に記述する（「なんとなく良さそう」は禁止）
+   - 制約条件（ライセンス、リソース、コスト）を満たしているか明示する
+   - 推奨順位の根拠を定量的に示す（可能な場合）
+
+5. **公平性の確保（モデル評価特有）**
+   - 特定ベンダー/組織のモデルを過度に推奨しない
+   - OSSモデルと商用APIの両方を公平に比較する
+   - モデルの弱点も隠さず記載する
+
+6. **情報の鮮度管理**
+   - MLモデルは進化が速いため、3ヶ月以上前の情報には注意を促す
+   - 「本レポートはYYYY-MM-DD時点の情報に基づく」と明記する
+   - 最新情報はリーダーボード参照を推奨する旨を記載する
+
+### モデル評価時の検索のコツ
+
+1. **HuggingFaceを最優先**
+   - `site:huggingface.co {model_name}` でモデルカードを検索
+   - モデルカードにはベンチマーク、ライセンス、使用方法が集約されている
+
+2. **リーダーボードの直接参照**
+   - WebFetchでリーダーボードページを直接取得
+   - 検索結果より正確で最新のスコアが得られる
+
+3. **GitHub Issuesで実運用の声を確認**
+   - `{model_name} site:github.com issues` で実ユーザーの問題点を発見
+   - ベンチマークでは見えない実運用上の課題がわかる
+
+4. **Redditで実務者の評価を確認**
+   - `{model_name} site:reddit.com r/LocalLLaMA` でLLMコミュニティの評価
+   - `{model_name} site:reddit.com r/MachineLearning` で研究者視点の評価
+
+5. **arXivで技術論文を確認**
+   - モデルの技術的詳細（アーキテクチャ、学習データ等）は論文が最も正確
+   - 特に新しいモデルは論文が唯一の詳細情報源の場合がある
