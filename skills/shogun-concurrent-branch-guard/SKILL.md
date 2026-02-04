@@ -1,6 +1,6 @@
 ---
 name: concurrent-branch-guard
-description: 同一リポジトリで複数エージェントが並行作業する際のファイル競合を防止するスキル。RACE-001パターン（同一working directoryで複数足軽が異なるブランチを操作→ファイル破壊）を根本的に解決する。git worktree活用、.lockファイル方式、ファイル排他制御メカニズムを組み合わせ、マルチエージェント環境でのGit操作安全性を保証する。「並行ブランチ作業の競合を防ぎたい」「git worktreeをセットアップして」「ファイルロック機構を導入して」といった要望に対応する。
+description: 同一リポジトリで複数エージェントが並行作業する際のファイル競合を防止するスキル。RACE-001パターン（同一working directoryで複数足軽が異なるブランチを操作→ファイル破壊）を根本的に解決する。git worktree活用、.lockファイル方式、ファイル排他制御メカニズムを組み合わせ、マルチエージェント環境でのGit操作安全性を保証する。「並行ブランチ作業の競合を防ぎたい」「git worktreeをセットアップして」「ファイルロック機構を導入して」といった要望に対応する。さらに、concurrent-git-branch-committer機能（複数エージェントが異なるブランチで並行コミットする際の安全な運用パターン）とatomic-git-multiagent-committer機能（複数エージェントの分散作業を単一のアトミックコミットとして統合）を提供する。「複数足軽の作業を1つのコミットにまとめて」「並行ブランチでの安全なコミット方法を教えて」といった要望にも対応する。
 ---
 
 # Concurrent Branch Guard
@@ -67,12 +67,16 @@ multi-agent-shogunシステムで実際に発生した致命的な競合パタ�
 - 「ファイルロック機構を導入して」
 - 「足軽のタスク分割でファイル競合を防ぎたい」
 - 「RACE-001対策を導入して」
+- 「複数足軽の作業を1つのコミットにまとめて」（atomic-git-multiagent-committer機能）
+- 「並行ブランチでの安全なコミット方法を教えて」（concurrent-git-branch-committer機能）
+- 「分散作業を統合してコミットしたい」（atomic-git-multiagent-committer機能）
 - 同一リポジトリに対して2名以上のエージェントが同時に作業する状況
 - 異なるブランチで並行開発し、各ブランチの成果物を独立に保ちたい場合
 - git checkout による意図しないファイル変更が発生している場合
 - CI/CDで複数ブランチのビルドが同一マシン上で実行される場合
+- 複数エージェントが作成したファイルを論理的に1つの変更セットとしてコミットしたい場合
 
-**トリガーキーワード**: 並行作業, ファイル競合, RACE-001, git worktree, ブランチガード, 排他制御, ファイルロック, 並列ブランチ
+**トリガーキーワード**: 並行作業, ファイル競合, RACE-001, git worktree, ブランチガード, 排他制御, ファイルロック, 並列ブランチ, 並行コミット, アトミックコミット, 分散作業統合, マルチエージェントコミット
 
 ## Instructions
 
@@ -599,6 +603,292 @@ done
 exit 0
 ```
 
+### Phase 6: 並行ブランチコミット（concurrent-git-branch-committer機能）
+
+複数エージェントが異なるブランチで並行してコミットを行う際の安全な運用パターンを提供する。
+
+#### Step 6.1: 並行ブランチコミットの概念
+
+```
+【concurrent-git-branch-committer とは】
+
+複数のエージェント（足軽）が、それぞれ独立したブランチで作業し、
+各自のタイミングで安全にコミット・プッシュを行うための運用パターン。
+
+従来の問題:
+  足軽A: feature/prompts で作業 → コミット
+  足軽B: feature/resources で作業 → コミット
+  → 同一 working directory だと、相手のコミット前変更が混入するリスク
+
+concurrent-git-branch-committer の解決策:
+  1. 各足軽に専用 worktree を割り当て（Phase 2）
+  2. 各 worktree で独立してコミット可能
+  3. プッシュも独立して実行（競合なし）
+  4. マージは家老が順次実行（コンフリクト解決を集中管理）
+
+利点:
+  - 各足軽が他の足軽の作業完了を待たずにコミット可能
+  - プッシュのタイミングも独立
+  - コミット履歴が明確（各足軽の作業が独立したコミットとして記録）
+  - ブランチ単位でのレビュー・テストが容易
+```
+
+#### Step 6.2: 並行ブランチコミットのワークフロー
+
+```
+【並行ブランチコミット ワークフロー】
+
+前提条件:
+  - 各足軽に専用 worktree が割り当て済み（Phase 2 完了）
+  - 各 worktree が異なるブランチをチェックアウト済み
+
+1. 各足軽の作業フロー
+   cd {自分の worktree}
+   # 作業実行
+   vim src/main/java/.../MyClass.java
+   # ステージング
+   git add -A
+   # コミット（Co-Authored-By 付き）
+   git commit -m "$(cat <<'EOF'
+   feat: Prompt実装を追加
+
+   - SetupHandlerQueuePrompt を実装
+   - テストケース追加
+
+   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+   EOF
+   )"
+   # プッシュ
+   git push -u origin {branch_name}
+
+2. 家老によるマージ調整
+   # 各ブランチの状態確認
+   git fetch --all
+   git log --oneline --graph --all
+
+   # マージ順序の決定（依存関係を考慮）
+   # 例: prompts → resources → tools → main への統合順序
+
+   # PR作成またはマージ実行
+   gh pr create --base main --head feature/prompts
+   gh pr create --base main --head feature/resources
+
+3. コンフリクト発生時の対応
+   # 家老がコンフリクトを検出
+   git merge feature/prompts  # コンフリクト発生
+
+   # 家老が解決するか、該当足軽に解決を依頼
+   # → 解決は worktree 内で実施（他の足軽に影響なし）
+```
+
+#### Step 6.3: 並行ブランチコミットのベストプラクティス
+
+```
+【並行ブランチコミット ベストプラクティス】
+
+1. コミットメッセージの統一
+   - Conventional Commits 形式を推奨
+   - feat: / fix: / docs: / refactor: / test: 等のプレフィックス
+   - Co-Authored-By を必ず付与
+
+2. プッシュ前のリベース（オプション）
+   # main の最新を取り込む場合
+   git fetch origin main
+   git rebase origin/main
+   # → コンフリクトは worktree 内で解決
+
+3. 小さなコミット単位
+   - 1機能 = 1コミット を推奨
+   - 大きな変更は複数コミットに分割
+   - 各コミットが独立してビルド・テスト可能
+
+4. ブランチの命名規則
+   feature/{phase}-{component}
+   例: feature/phase1-prompts, feature/phase1-resources
+
+5. 定期的なプッシュ
+   - 長時間プッシュしないと、マージ時のコンフリクトが増大
+   - 1タスク完了ごとにプッシュを推奨
+```
+
+### Phase 7: アトミックマルチエージェントコミット（atomic-git-multiagent-committer機能）
+
+複数エージェントが分散して作成したファイル群を、単一のアトミックコミットとして統合する機能を提供する。
+
+#### Step 7.1: アトミックマルチエージェントコミットの概念
+
+```
+【atomic-git-multiagent-committer とは】
+
+複数の足軽が並行して作成したファイルを、論理的に1つの変更セットとして
+単一のコミットにまとめる運用パターン。
+
+ユースケース:
+  - 1つの機能が複数ファイルにまたがり、各ファイルを異なる足軽が担当
+  - 全ファイルが揃って初めて意味のある変更（中間状態ではビルド不可）
+  - 「1機能 = 1コミット」のポリシーを維持したい場合
+
+例:
+  足軽A: SetupHandlerQueuePrompt.java を作成
+  足軽B: SetupHandlerQueuePromptTest.java を作成
+  足軽C: SKILL.md に使用方法を追記
+  → 3ファイルを1つのコミットとして記録
+
+従来の方法（各足軽が個別コミット）:
+  コミット1: feat: SetupHandlerQueuePrompt実装
+  コミット2: test: SetupHandlerQueuePromptTestを追加
+  コミット3: docs: SKILL.mdに使用方法追記
+  → 3コミットに分散、履歴が冗長
+
+atomic-git-multiagent-committer:
+  コミット1: feat: SetupHandlerQueuePrompt を追加（実装・テスト・ドキュメント）
+  → 1コミットに統合、履歴が簡潔
+```
+
+#### Step 7.2: アトミックコミットの実現方式
+
+```
+【アトミックコミット 実現方式】
+
+方式1: 統合ブランチ方式（推奨）
+
+  1. 統合用ブランチを作成
+     git checkout -b feature/atomic-integration main
+
+  2. 各足軽が自分の worktree で作業完了
+     # 足軽A: worktree-A で作業、コミットせずに待機
+     # 足軽B: worktree-B で作業、コミットせずに待機
+     # 足軽C: worktree-C で作業、コミットせずに待機
+
+  3. 家老が統合ブランチに各変更をコピー
+     # 統合ブランチに移動
+     cd {main_repo}
+     git checkout feature/atomic-integration
+
+     # 各 worktree から変更ファイルをコピー
+     cp ../worktree-A/src/main/java/.../Prompt.java src/main/java/.../
+     cp ../worktree-B/src/test/java/.../PromptTest.java src/test/java/.../
+     cp ../worktree-C/docs/SKILL.md docs/
+
+     # アトミックコミット
+     git add -A
+     git commit -m "$(cat <<'EOF'
+     feat: SetupHandlerQueuePrompt を追加
+
+     - Prompt 実装クラス
+     - ユニットテスト
+     - SKILL.md ドキュメント
+
+     Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+     Contributors: ashigaru3, ashigaru5, ashigaru6
+     EOF
+     )"
+
+方式2: パッチ方式
+
+  1. 各足軽が変更をパッチファイルとして出力
+     cd {worktree-A}
+     git diff > /tmp/ashigaru3.patch
+
+  2. 家老が統合ブランチでパッチを適用
+     cd {main_repo}
+     git checkout -b feature/atomic-integration main
+     git apply /tmp/ashigaru3.patch
+     git apply /tmp/ashigaru5.patch
+     git apply /tmp/ashigaru6.patch
+     git add -A
+     git commit -m "feat: 統合コミット ..."
+
+方式3: cherry-pick + squash 方式
+
+  1. 各足軽が自分のブランチでコミット（通常通り）
+  2. 家老が統合ブランチで cherry-pick
+     git checkout -b feature/atomic-integration main
+     git cherry-pick {commit-A} --no-commit
+     git cherry-pick {commit-B} --no-commit
+     git cherry-pick {commit-C} --no-commit
+     git commit -m "feat: 統合コミット ..."
+```
+
+#### Step 7.3: アトミックコミット用のロック連携
+
+```
+【アトミックコミット用ロック連携】
+
+アトミックコミットでは、全足軽の作業が完了するまで
+統合を待機する必要がある。これをロック機構で管理する。
+
+1. 統合待ちロックの作成
+   # .locks/atomic-integration.lock
+   integration_id: "atomic_001"
+   created_at: "2026-02-04T10:00:00"
+   awaiting:
+     - worker: ashigaru3
+       file: "src/main/java/.../Prompt.java"
+       status: pending  # pending | ready
+     - worker: ashigaru5
+       file: "src/test/java/.../PromptTest.java"
+       status: pending
+     - worker: ashigaru6
+       file: "docs/SKILL.md"
+       status: pending
+   integrator: karo
+   target_branch: "feature/atomic-integration"
+
+2. 各足軽が完了報告
+   # ashigaru3 が作業完了時
+   # .locks/atomic-integration.lock を更新
+   # status: pending → ready
+
+3. 全員 ready 後に統合実行
+   # 家老が全員の status: ready を確認
+   # → 統合コミット実行
+   # → ロックファイル削除
+
+4. タイムアウト処理
+   # 24時間以上 pending の足軽がいる場合
+   # → 家老に警告通知
+   # → 該当足軽のタスクを確認
+```
+
+#### Step 7.4: アトミックコミットのコマンド例
+
+```bash
+#!/bin/bash
+# atomic-commit.sh — アトミックマルチエージェントコミット実行スクリプト
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+INTEGRATION_BRANCH=$1
+COMMIT_MSG=$2
+WORKTREES="${@:3}"  # 残りの引数は worktree パス
+
+# 統合ブランチ作成
+git checkout -b "$INTEGRATION_BRANCH" main
+
+# 各 worktree から変更を収集
+for wt in $WORKTREES; do
+  echo "=== $wt からの変更を収集 ==="
+
+  # 変更ファイル一覧を取得
+  cd "$wt"
+  CHANGED_FILES=$(git status --porcelain | awk '{print $2}')
+
+  # 変更ファイルをコピー
+  for file in $CHANGED_FILES; do
+    mkdir -p "$(dirname "$REPO_ROOT/$file")"
+    cp "$file" "$REPO_ROOT/$file"
+  done
+
+  cd "$REPO_ROOT"
+done
+
+# アトミックコミット
+git add -A
+git commit -m "$COMMIT_MSG"
+
+echo "アトミックコミット完了: $(git log -1 --oneline)"
+```
+
 ## Input Format
 
 ```yaml
@@ -744,6 +1034,143 @@ guard_level: "L2"                          # L1/L2/L3/L4
 - ビルド結果が互いに干渉しない
 ```
 
+### Example 4: 並行ブランチコミット（concurrent-git-branch-committer）
+
+```
+【状況】
+- 足軽4名が同一リポジトリで異なる機能を並行開発
+- 各足軽が独立したブランチで作業
+- 各自のタイミングでコミット・プッシュしたい
+- マージは家老が順次管理
+
+【セットアップ】
+
+1. worktree 準備（家老が実行）
+   git worktree add ../project-wt-ashigaru1 -b feature/auth
+   git worktree add ../project-wt-ashigaru2 -b feature/api
+   git worktree add ../project-wt-ashigaru3 -b feature/ui
+   git worktree add ../project-wt-ashigaru4 -b feature/tests
+
+2. 各足軽への指示
+   足軽1: target_path: ../project-wt-ashigaru1/, branch: feature/auth
+   足軽2: target_path: ../project-wt-ashigaru2/, branch: feature/api
+   足軽3: target_path: ../project-wt-ashigaru3/, branch: feature/ui
+   足軽4: target_path: ../project-wt-ashigaru4/, branch: feature/tests
+
+3. 各足軽の作業フロー
+   cd {自分のworktree}
+   # 開発作業...
+   git add -A
+   git commit -m "feat: 認証機能を実装
+
+   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>"
+   git push -u origin feature/auth
+
+4. 家老によるマージ管理
+   # 各PRの状態確認
+   gh pr list
+
+   # 依存関係を考慮してマージ順序を決定
+   # auth → api → ui → tests の順でマージ
+   gh pr merge 1 --squash
+   gh pr merge 2 --squash
+   ...
+
+【結果】
+- 各足軽が他の足軽を待たずに独立してコミット・プッシュ
+- コンフリクト解決は家老が集中管理
+- 各機能が独立したPRとしてレビュー可能
+- コミット履歴が機能単位で明確
+```
+
+### Example 5: アトミックマルチエージェントコミット（atomic-git-multiagent-committer）
+
+```
+【状況】
+- 新機能「ユーザープロファイル」を3名の足軽で分担
+- 足軽A: UserProfileService.java（ビジネスロジック）
+- 足軽B: UserProfileController.java（REST API）
+- 足軽C: user-profile.html + user-profile.css（UI）
+- 3ファイルが揃って初めて機能として完成
+- 中間状態ではビルド不可のため、1コミットにまとめたい
+
+【セットアップ】
+
+1. 各足軽に作業用 worktree を割り当て
+   git worktree add ../project-wt-ashigaru1 -b tmp/profile-service
+   git worktree add ../project-wt-ashigaru2 -b tmp/profile-controller
+   git worktree add ../project-wt-ashigaru3 -b tmp/profile-ui
+
+2. 統合待ちロックを作成
+   # .locks/atomic-user-profile.lock
+   integration_id: "profile_001"
+   created_at: "2026-02-04T10:00:00"
+   awaiting:
+     - worker: ashigaru1
+       file: "src/main/java/.../UserProfileService.java"
+       status: pending
+     - worker: ashigaru2
+       file: "src/main/java/.../UserProfileController.java"
+       status: pending
+     - worker: ashigaru3
+       files:
+         - "src/main/resources/templates/user-profile.html"
+         - "src/main/resources/static/css/user-profile.css"
+       status: pending
+   integrator: karo
+   target_branch: "feature/user-profile"
+
+3. 各足軽の作業（コミットせず待機）
+   cd {自分のworktree}
+   # 開発作業...
+   # git add, commit はしない（家老による統合を待つ）
+
+   # 作業完了を報告（ロックファイル更新）
+   # status: pending → ready
+
+4. 家老による統合コミット
+   # 全員 ready を確認後
+   git checkout -b feature/user-profile main
+
+   # 各 worktree から変更ファイルを収集
+   cp ../project-wt-ashigaru1/src/main/java/.../UserProfileService.java \
+      src/main/java/.../
+   cp ../project-wt-ashigaru2/src/main/java/.../UserProfileController.java \
+      src/main/java/.../
+   cp ../project-wt-ashigaru3/src/main/resources/templates/user-profile.html \
+      src/main/resources/templates/
+   cp ../project-wt-ashigaru3/src/main/resources/static/css/user-profile.css \
+      src/main/resources/static/css/
+
+   # アトミックコミット
+   git add -A
+   git commit -m "$(cat <<'EOF'
+   feat: ユーザープロファイル機能を追加
+
+   - UserProfileService: プロファイル取得・更新ロジック
+   - UserProfileController: REST API エンドポイント
+   - user-profile.html/css: プロファイル画面UI
+
+   Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
+   Contributors: ashigaru1, ashigaru2, ashigaru3
+   EOF
+   )"
+
+   # worktree のクリーンアップ
+   git worktree remove ../project-wt-ashigaru1
+   git worktree remove ../project-wt-ashigaru2
+   git worktree remove ../project-wt-ashigaru3
+
+   # ロックファイル削除
+   rm .locks/atomic-user-profile.lock
+
+【結果】
+- 3名の分散作業が1つのアトミックコミットに統合
+- 中間状態がコミット履歴に残らない
+- コミット単位でrevertが可能（3ファイルまとめて戻せる）
+- Contributors として各足軽の貢献が記録される
+```
+
 ## Guidelines
 
 ### 必須ルール
@@ -801,6 +1228,16 @@ guard_level: "L2"                          # L1/L2/L3/L4
    - .locks/*.lock はGit管理外にする
    - worktreeの設定ファイル等もignore対象
 
+6. **並行ブランチコミット（Phase 6）の活用**
+   - 各足軽が独立したタイミングでコミット・プッシュ可能
+   - マージ順序は家老が依存関係を考慮して決定
+   - Conventional Commits 形式 + Co-Authored-By を統一
+
+7. **アトミックマルチエージェントコミット（Phase 7）の選択基準**
+   - 複数ファイルが揃って初めて意味のある変更の場合に使用
+   - 中間状態でビルド不可となる機能追加に適用
+   - 統合待ちロックで全員の完了を管理
+
 ### アンチパターン（避けるべきこと）
 
 1. **「気をつけているから大丈夫」という油断**
@@ -843,3 +1280,15 @@ guard_level: "L2"                          # L1/L2/L3/L4
 10. **worktreeの命名不統一**
     - `wt-1`, `worktree_prompts`, `tmp-branch` 等バラバラな命名
     - 対策: `{project}-wt-{agent_id}` の命名規則を厳守
+
+11. **並行ブランチコミット時のマージ順序無視**
+    - 依存関係を考慮せずにランダムにマージ
+    - 対策: 家老が依存関係を分析し、適切なマージ順序を決定
+
+12. **アトミックコミット待ちの長期化**
+    - 一部の足軽の作業遅延で他の足軽もブロック
+    - 対策: 統合待ちロックにタイムアウト（24時間）を設定。遅延時は家老に警告
+
+13. **不要なアトミックコミットの乱用**
+    - 独立してコミット可能な変更もアトミックコミットにまとめる
+    - 対策: 中間状態でビルド可能な場合は各自でコミット（Phase 6）を使用
