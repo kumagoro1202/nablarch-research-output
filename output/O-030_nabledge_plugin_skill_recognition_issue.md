@@ -28,6 +28,25 @@ nabledge-6プラグインのセットアップスクリプト（`setup-6-cc.sh`�
 
 両回ともインタラクティブモード（通常起動）であり、ヘッドレスモード（`-p`フラグ）は使用していない。また、いずれの起動時もTrust Dialog（承認ダイアログ）は表示されなかった。
 
+### 再現確認（2026-02-16実施）
+
+`~/.claude/plugins/` 配下のnabledge-6関連ファイルを削除した状態でClaude Codeを起動したところ、初回起動時にプラグインは認識されるがスキルは認識されないという事象が再現された。
+
+#### 削除したファイル
+
+- `~/.claude/plugins/known_marketplaces.json` からnabledgeエントリを削除
+- `~/.claude/plugins/installed_plugins.json` からnabledge-6@nabledgeエントリを削除
+- `~/.claude/plugins/cache/nabledge/` ディレクトリを削除
+- `~/.claude/plugins/marketplaces/nabledge/` ディレクトリを削除
+
+#### 前提条件
+
+プロジェクトレベルの`.claude/settings.json`は、セットアップスクリプト実行後の状態（`extraKnownMarketplaces`と`enabledPlugins`の設定を含む）を維持したまま実施。
+
+#### 再現結果
+
+初回起動時に `/plugin` コマンドではプラグインが「installed」と表示されたが、スキル一覧には表示されず、上記の観測された現象（1回目）と同一の挙動を確認した。
+
 ## 原因
 
 ### 根本原因: マーケットプレイスの非同期ロードによるレースコンディション
