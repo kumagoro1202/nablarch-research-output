@@ -15,16 +15,18 @@ nabledge-6プラグインのセットアップスクリプト（`setup-6-cc.sh`�
 ### 再現手順
 
 1. `curl -sSL https://raw.githubusercontent.com/nablarch/nabledge/main/setup-6-cc.sh | bash` を実行
-2. Claude Codeを起動
+2. Claude Codeを通常モード（インタラクティブモード）で起動
 3. `/plugin`コマンドでプラグインの認識状態を確認
 4. スキル一覧でnabledge-6の認識状態を確認
 
 ### 観測された現象
 
-| 起動回数 | `/plugin`の表示 | スキル認識 |
-|----------|----------------|-----------|
-| 1回目    | installed ✅    | 未認識 ❌  |
-| 2回目（再起動後） | installed ✅ | 認識 ✅ |
+| 起動回数 | 起動モード | Trust Dialog | `/plugin`の表示 | スキル認識 |
+|----------|-----------|-------------|----------------|-----------|
+| 1回目    | インタラクティブ | 表示されず | installed ✅    | 未認識 ❌  |
+| 2回目（再起動後） | インタラクティブ | 表示されず | installed ✅ | 認識 ✅ |
+
+両回ともインタラクティブモード（通常起動）であり、ヘッドレスモード（`-p`フラグ）は使用していない。また、いずれの起動時もTrust Dialog（承認ダイアログ）は表示されなかった。
 
 ## 原因
 
@@ -37,25 +39,26 @@ Claude Codeの既知の問題（[Issue #10997](https://github.com/anthropics/cla
 #### 初回起動時（問題が発生）
 
 ```
-1. Claude Code起動
+1. Claude Code起動（インタラクティブモード）
 2. settings.json読み込み
    → enabledPlugins: {"nabledge-6@nabledge": true} を認識
    → /plugin で "installed" と表示される ✅
-3. Trust Dialog表示 → ユーザー承認
-4. extraKnownMarketplaces の処理開始
+3. extraKnownMarketplaces の処理開始
    → GitHubからマーケットプレイスを【非同期】でfetch
-5. この間に、スキルローディングが【先に】実行される
-6. ~/.claude/plugins/cache/ にまだコンテンツがない
+4. この間に、スキルローディングが【先に】実行される
+5. ~/.claude/plugins/cache/ にまだコンテンツがない
    → スキル未認識 ❌
-7. （バックグラウンドで）マーケットプレイスfetch完了
+6. （バックグラウンドで）マーケットプレイスfetch完了
    → ~/.claude/plugins/marketplaces/nabledge/ に書き込み
+   → ~/.claude/plugins/known_marketplaces.json を更新
    → ~/.claude/plugins/cache/nabledge/nabledge-6/0.1/ にキャッシュ書き込み
+   → ~/.claude/plugins/installed_plugins.json を更新
 ```
 
 #### 2回目の起動時（正常動作）
 
 ```
-1. Claude Code起動
+1. Claude Code起動（インタラクティブモード）
 2. settings.json読み込み
    → enabledPlugins を認識 ✅
 3. known_marketplaces.json にキャッシュあり
@@ -63,6 +66,17 @@ Claude Codeの既知の問題（[Issue #10997](https://github.com/anthropics/cla
 4. cache/ にプラグインコンテンツあり
    → SKILL.md読み込み → スキル認識 ✅
 ```
+
+### extraKnownMarketplacesの処理トリガー
+
+[調査Gist](https://gist.github.com/alexey-pelykh/566a4e5160b305db703d543312a1e686)によると、`extraKnownMarketplaces`は**インタラクティブなTrust Dialogの承認イベントハンドラ内で**処理されるとされている。しかし、今回の事象ではTrust Dialogが表示されなかったにもかかわらず、初回起動中にマーケットプレイスfetchとプラグインインストールが実行された（`known_marketplaces.json`と`installed_plugins.json`が初回セッション中に作成されている）。
+
+これは、Trust Dialog以外にも`extraKnownMarketplaces`を処理するコードパスが存在することを示している。考えられるメカニズム:
+
+- **既にTrust済みの環境**: 過去に一度でもTrust Dialogを承認済みの場合、以降のセッションではダイアログをスキップしつつ、設定処理（`extraKnownMarketplaces`の読み込みを含む）は実行される
+- **起動時の設定処理フロー**: Claude Codeの起動シーケンスにおいて、Trust Dialog表示の有無とは独立して`settings.json`の`extraKnownMarketplaces`を処理するパスが存在する可能性がある
+
+いずれの場合も、マーケットプレイスfetchが**非同期**で行われるという根本的な構造は変わらないため、初回起動時のレースコンディションは発生する。
 
 ### 2層のストレージシステム
 
@@ -75,13 +89,11 @@ Claude Codeはプラグイン管理に2層のストレージを使用してい�
 | ユーザー | `~/.claude/plugins/installed_plugins.json` | インストール済みプラグインの実体管理 | プラグインマネージャ |
 | ユーザー | `~/.claude/plugins/cache/{marketplace}/{plugin}/{version}/` | スキルファイルの実体 | スキルシステム |
 
-### extraKnownMarketplaces の処理タイミング
+### ヘッドレスモードについて（参考情報）
 
-[調査Gist](https://gist.github.com/alexey-pelykh/566a4e5160b305db703d543312a1e686)によると、`extraKnownMarketplaces`は**インタラクティブなTrust Dialogの承認イベントハンドラ内でのみ**処理される。
+ヘッドレスモード（`-p`フラグ）ではTrust Dialogがスキップされ、`extraKnownMarketplaces`は一切処理されない。`hasTrustDialogAccepted: true` を手動設定しても、インタラクティブなダイアログイベントなしではインストールがトリガーされない。
 
-- Trust Dialog → ユーザー承認 → `extraKnownMarketplaces`を処理 → マーケットプレイスfetch開始
-- `hasTrustDialogAccepted: true` を手動設定しても、インタラクティブなダイアログイベントなしではインストールされない
-- ヘッドレスモード（`-p`フラグ）ではTrust Dialogがスキップされるため、`extraKnownMarketplaces`は一切処理されない
+ただし、**今回の事象はインタラクティブモードで発生しており、ヘッドレスモードは無関係**である。ヘッドレスモードの制約は、CI/CDパイプラインやスクリプトからの自動実行を検討する場合に留意すべき事項となる。
 
 ## 現在の状態（調査時点のファイル構造）
 
@@ -132,6 +144,7 @@ Claude Codeはプラグイン管理に2層のストレージを使用してい�
         "installPath": "/home/kuma/.claude/plugins/cache/nabledge/nabledge-6/0.1",
         "version": "0.1",
         "installedAt": "2026-02-16T13:00:47.400Z",
+        "lastUpdated": "2026-02-16T13:00:47.400Z",
         "gitCommitSha": "507a8956d281e5fffb02f37e1cf6366674991c85",
         "projectPath": "/home/kuma/nabledge-test"
       }
@@ -142,7 +155,9 @@ Claude Codeはプラグイン管理に2層のストレージを使用してい�
 
 ### .orphaned_at ファイル
 
-`~/.claude/plugins/cache/nabledge/nabledge-6/0.1/skills/nabledge-6/.orphaned_at` にタイムスタンプ `1771246847392`（2026-02-17T05:00:47 UTC頃）が記録されている。Claude Codeのキャッシュクリーンアップ機構がスキルを「孤立状態」としてマークしている可能性がある。
+`~/.claude/plugins/cache/nabledge/nabledge-6/0.1/skills/nabledge-6/.orphaned_at` にタイムスタンプ `1771246847392`（ミリ秒精度Unixタイムスタンプ、**2026-02-16T13:00:47.392 UTC**）が記録されている。
+
+このタイムスタンプは`installed_plugins.json`の`installedAt`（2026-02-16T13:00:47.400Z）とわずか**8ミリ秒**の差であり、インストールとほぼ同時に作成されている。この同時性から、`.orphaned_at`はキャッシュクリーンアップ機構による後発的なマーキングではなく、インストールプロセス自体の一部として作成されたと考えられる。具体的には、プラグインが`projectPath: "/home/kuma/nabledge-test"` にscope=projectで紐づいているため、別のプロジェクトディレクトリからアクセスした場合や、プロジェクトスコープ外の状態判定において「孤立」扱いされる可能性がある。
 
 ## setup-6-cc.sh の処理内容
 
@@ -247,7 +262,7 @@ echo "$UPDATED_IP" > "$INSTALLED_PLUGINS_FILE"
 
 ## 結論
 
-`setup-6-cc.sh`が`.claude/settings.json`に`extraKnownMarketplaces`と`enabledPlugins`を書き込むだけでは、Claude Code初回起動時にマーケットプレイスのfetchが非同期で行われるため、スキルローディングとのレースコンディションが発生する。`~/.claude/plugins/cache/`およびユーザーレベルのメタデータファイルへの事前書き込みをスクリプトに追加することで、初回起動時からスキルが認識されるようにできる。
+`setup-6-cc.sh`が`.claude/settings.json`に`extraKnownMarketplaces`と`enabledPlugins`を書き込むだけでは、Claude Code初回起動時にマーケットプレイスのfetchが非同期で行われるため、スキルローディングとのレースコンディションが発生する。今回の事象では、両回ともインタラクティブモードで起動しTrust Dialogは表示されなかったが、初回起動時のバックグラウンドfetchが完了した後、2回目の起動でキャッシュから同期的にロードされスキルが認識された。`~/.claude/plugins/cache/`およびユーザーレベルのメタデータファイルへの事前書き込みをスクリプトに追加することで、初回起動時からスキルが認識されるようにできる。
 
 ## 調査日
 
